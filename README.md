@@ -8,7 +8,7 @@
 code部分基于 numpy 1.xx 和matplotlib 3.6.3版本，用较新版本的可能会报错。
 
 # 使用说明
-下载 dist/XRD_RSM.zip， 解压之后，运行XRD_RSM.exe文件，初次打开界面如下：
+下载 dist/XRD_RSM.zip.001 和 XRD_RSM.zip.002， 解压之后，运行XRD_RSM.exe文件，初次打开界面如下：
 
 ![img.png](pics/img.png)
 
