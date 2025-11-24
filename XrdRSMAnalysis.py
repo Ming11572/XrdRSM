@@ -1,8 +1,6 @@
-import pickle
 from ui.main import Ui_mainui
 
-from PySide6.QtUiTools import QUiLoader
-from PySide6.QtCore import QFile
+from PySide6.QtCore import QFile, Signal
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QInputDialog, QLineEdit
 import xml.dom.minidom
 import numpy as np
@@ -53,6 +51,7 @@ def log_with_zero(var):
 
 
 class XrdRSM(FigureCanvas, Ui_mainui):
+    signal_refresh_canvas = Signal()
 
     def __init__(self):
         super(XrdRSM, self).__init__()
@@ -75,15 +74,16 @@ class XrdRSM(FigureCanvas, Ui_mainui):
         # self.select_comboBox.addItem("InxGa1-xAs / Si (001)")
         self.select_comboBox.setCurrentIndex(0)
         self.select_comboBox.currentTextChanged.connect(self.combox_changed)
+        self.signal_refresh_canvas.connect(self.refresh_canvas)
         # self.select_comboBox.currentIndexChanged.connect(self.combox_changed)
 
         # 初始化私有变量
         self.import_path = r'F:\datas'
-        self.qx = np.mat([[]])
-        self.qz = np.mat([[]])
-        self.omega = np.mat([[]])
-        self.theta = np.mat([[]])
-        self.intensity = np.mat([[]])
+        self.qx = np.asmatrix([[]])
+        self.qz = np.asmatrix([[]])
+        self.omega = np.asmatrix([[]])
+        self.theta = np.asmatrix([[]])
+        self.intensity = np.asmatrix([[]])
         self.xmin = -1
         self.xmax = 1
         self.ymin = -1
@@ -102,13 +102,14 @@ class XrdRSM(FigureCanvas, Ui_mainui):
         self.z_min = 0
         self.sb_zmin.setSingleStep(1)
         self.z_max = 1000
-        self.sel_cross1 = None
-        self.sel_cross2 = None
         self.zoomed = False
-        self.relaxation_line = None
         plt.ion()
         self.fig = plt.figure(1, [8, 8])
         self.ax = self.fig.add_subplot(1, 1, 1)
+        self.sel_cross1, = self.ax.plot([], [], linewidth=1, color='k')
+        self.sel_cross2, = self.ax.plot([], [], linewidth=1, color='k')
+        self.relaxation_line, = self.ax.plot([],[], linewidth=2, linestyle='--', color='k')
+
         self.font_tick_label = {'family': 'Times New Roman', 'weight': 'normal', 'size': 18}
         self.font_axis_label = {'family': 'Times New Roman', 'weight': 'normal', 'size': 24}
         self.font_title = {'family': 'Times New Roman', 'weight': 'bold', 'size': 24, 'color': 'red'}
@@ -147,6 +148,13 @@ class XrdRSM(FigureCanvas, Ui_mainui):
         self.cb_plot_log.stateChanged.connect(self.plot_log_changed)
 
         self.combox_changed("GexSi1-x / Si (001)")
+
+    def clear_figs(self):
+        self.fig.clf()
+        self.ax = self.fig.add_subplot(1, 1, 1)
+        self.sel_cross1, = self.ax.plot([], [], linewidth=1, color='k')
+        self.sel_cross2, = self.ax.plot([], [], linewidth=1, color='k')
+        self.relaxation_line, = self.ax.plot([], [], linewidth=2, linestyle='--', color='k')
 
     def para_changed(self):
         # 计算相关
@@ -259,27 +267,17 @@ class XrdRSM(FigureCanvas, Ui_mainui):
         self.ymax = np.max(self.intensity)
         self.export_button.setEnabled(True)
         self.plot_scan_data()
-        # npdatas = np.vstack([ome, theta, np.array(intensity_data)])
-        # df = pd.DataFrame(npdatas.T, columns=['omega', 'theta', 'Intensity'])
-        #
-        # df.to_csv(f"{os.path.splitext(filename)[0]}.csv", index=False)
-        # df.to_csv(f"{os.path.splitext(filename)[0]}.txt", index=False)
-        # print("All done!")
 
     def plot_scan_data(self, x=None, y=None):
-        self.fig.clf()
-        self.ax = self.fig.add_subplot(1, 1, 1)
+        # self.fig.clf()
+        self.clear_figs()
+        # self.ax = self.fig.add_subplot(1, 1, 1)
         if self.flag_cb_plot_checked:
             x = [i for i in self.omega]
             y = [log_with_zero(i) for i in self.intensity]
             self.ax.plot(x, y)
         else:
             self.ax.plot(self.omega, self.intensity)
-        # if (x is None) or (y is None):
-        #     self.ax.plot(self.omega, self.intensity)
-        # else:
-        #     self.ax.plot(x, y)
-        # self.ax.axis([self.xmin, self.xmax, self.ymin, self.ymax])
         self.fig.show()
 
     def plot_log_changed(self, cb_id):
@@ -333,9 +331,9 @@ class XrdRSM(FigureCanvas, Ui_mainui):
         theta_end = 2
         counts = 0
 
-        self.omega = np.mat([[]])
-        self.theta = np.mat([[]])
-        self.intensity = np.mat([[]])
+        self.omega = np.asmatrix([[]])
+        self.theta = np.asmatrix([[]])
+        self.intensity = np.asmatrix([[]])
 
         for i in data:
             if i.getAttribute('axis') == "2Theta":
@@ -366,11 +364,11 @@ class XrdRSM(FigureCanvas, Ui_mainui):
                 if self.omega.size == 0:
                     self.omega = omega
                     self.theta = np.linspace(theta_str, theta_end, n)
-                    self.intensity = np.mat(intensity_line)
+                    self.intensity = np.asmatrix(intensity_line)
                 else:
                     self.omega = np.row_stack((self.omega, omega))
                     self.theta = np.row_stack((self.theta, np.linspace(theta_str, theta_end, n)))
-                    self.intensity = np.row_stack((self.intensity, np.mat(intensity_line)))
+                    self.intensity = np.row_stack((self.intensity, np.asmatrix(intensity_line)))
                 # print(counts)
                 counts += 1
 
@@ -432,9 +430,9 @@ class XrdRSM(FigureCanvas, Ui_mainui):
         self.sb_zmin.setEnabled(True)
 
     def draw_contourf(self, refresh_axis=True):
-        self.fig.clf()
-        self.ax = self.fig.add_subplot(1, 1, 1)
-
+        # self.fig.clf()
+        # self.ax = self.fig.add_subplot(1, 1, 1)
+        self.clear_figs()
         if refresh_axis:
             self.refresh_axis_lim()
         # with open(r'G:\data analysis\temp.pkl', 'wb') as file:
@@ -527,25 +525,31 @@ class XrdRSM(FigureCanvas, Ui_mainui):
                 self.ax.axis([self.x_sel - x_width / 10, self.x_sel + x_width / 10,
                               self.y_sel - y_width / 10, self.y_sel + y_width / 10])
                 self.zoomed = True
-            if self.sel_cross1:
-                self.sel_cross1.remove()
-                self.sel_cross2.remove()
 
-            self.sel_cross1, = self.ax.plot([self.x_sel - x_width / 50, self.x_sel + x_width / 50],
-                                            [self.y_sel, self.y_sel], linewidth=1, color='k')
-            self.sel_cross2, = self.ax.plot([self.x_sel, self.x_sel],
-                                            [self.y_sel - y_width / 50, self.y_sel + y_width / 50],
-                                            linewidth=1, color='k')
+            self.sel_cross1.set_data([self.x_sel - x_width / 50, self.x_sel + x_width / 50],
+                                     [self.y_sel, self.y_sel])
+            self.sel_cross2.set_data([self.x_sel, self.x_sel],
+                                     [self.y_sel - y_width / 50, self.y_sel + y_width / 50])
+            self.signal_refresh_canvas.emit()
+            # if self.sel_cross1:
+            #     self.sel_cross1.remove()
+            #     self.sel_cross2.remove()
+            #
+            # self.sel_cross1, = self.ax.plot([self.x_sel - x_width / 50, self.x_sel + x_width / 50],
+            #                                 [self.y_sel, self.y_sel], linewidth=1, color='k')
+            # self.sel_cross2, = self.ax.plot([self.x_sel, self.x_sel],
+            #                                 [self.y_sel - y_width / 50, self.y_sel + y_width / 50],
+            #                                 linewidth=1, color='k')
             self.calib_button.setEnabled(True)
             if not self.haven_calib_sub:
                 self.addPeak_button.setEnabled(False)
                 self.x_slide.setEnabled(False)
         elif event.button == MouseButton.RIGHT:
-            if self.sel_cross1:
-                self.sel_cross1.remove()
-                self.sel_cross2.remove()
-                self.sel_cross1 = None
-                self.sel_cross2 = None
+            # if self.sel_cross1:
+            #     self.sel_cross1.remove()
+            #     self.sel_cross2.remove()
+            #     self.sel_cross1 = None
+            #     self.sel_cross2 = None
             self.ax.axis([self.xmin, self.xmax, self.ymin, self.ymax])
             self.zoomed = False
         elif event.button == MouseButton.MIDDLE:
@@ -639,16 +643,22 @@ class XrdRSM(FigureCanvas, Ui_mainui):
         x_value = float(self.x_slide.value()) / 100
         # print([self.qx_f0, self.qz_f0])
         # print(x_value)
-        if self.relaxation_line:
-            self.relaxation_line.remove()
+        # if self.relaxation_line:
+        #     self.relaxation_line.remove()
 
         qx_tmi = self.qx_s0 * (1 - x_value) + x_value * self.qx_f0
         qz_tmi = self.qz_s0 * (1 - x_value) + x_value * self.qz_f0
         # print(qx_tmi)
         # print(qz_tmi)
-        self.relaxation_line, = self.ax.plot([self.qx_s0, qx_tmi],
-                                             [self.qz_s0, qz_tmi],
-                                             linewidth=2, linestyle='--', color='k')
+        self.relaxation_line.set_data([self.qx_s0, qx_tmi], [self.qz_s0, qz_tmi])
+        self.signal_refresh_canvas.emit()
+        # print("show")
+        # self.relaxation_line, = self.ax.plot([self.qx_s0, qx_tmi],
+        #                                      [self.qz_s0, qz_tmi],
+        #                                      linewidth=2, linestyle='--', color='k')
+
+    def refresh_canvas(self):
+        self.fig.canvas.draw()
 
     def export_text(self):
         save_name, _ = QFileDialog.getSaveFileName(self, '导出xrd数据', self.filename + '.txt', '*.txt')
